@@ -1,4 +1,3 @@
-# prediction_model.py - Booking Confirmation Prediction Model
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
@@ -72,7 +71,7 @@ class BookingPredictionModel:
         confirmation_prob += (df['is_peak_hour'] == 0) * 0.08
         confirmation_prob += (df['num_seats'] == 1) * 0.05
         
-        # Add some randomness
+
         noise = np.random.uniform(-0.15, 0.15, n_samples)
         confirmation_prob = np.clip(confirmation_prob + noise, 0, 1)
         
@@ -91,8 +90,7 @@ class BookingPredictionModel:
                 df[f'{col}_encoded'] = self.label_encoders[col].fit_transform(df[col])
             else:
                 df[f'{col}_encoded'] = self.label_encoders[col].transform(df[col])
-        
-        # Update feature columns to use encoded versions
+
         encoded_features = [
             'day_of_week_encoded', 'booking_hour', 'route_segment_encoded', 
             'seat_type_encoded', 'num_seats', 'has_meal', 
@@ -104,29 +102,24 @@ class BookingPredictionModel:
     def train(self, df):
         """Train the prediction model"""
         print("Training Booking Confirmation Prediction Model...")
-        
-        # Preprocess
+
         df, encoded_features = self.preprocess_features(df, fit=True)
         
         X = df[encoded_features]
         y = df['confirmed']
-        
-        # Split data
+
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, test_size=0.2, random_state=42
         )
-        
-        # Train model
+
         self.model.fit(X_train, y_train)
-        
-        # Evaluate
+
         train_score = self.model.score(X_train, y_train)
         test_score = self.model.score(X_test, y_test)
         
         print(f"Training Accuracy: {train_score*100:.2f}%")
         print(f"Testing Accuracy: {test_score*100:.2f}%")
-        
-        # Feature importance
+
         feature_importance = pd.DataFrame({
             'feature': encoded_features,
             'importance': self.model.feature_importances_
@@ -159,24 +152,19 @@ class BookingPredictionModel:
         Returns:
             float: Confirmation probability (0-100%)
         """
-        # Create dataframe from input
         df = pd.DataFrame([booking_data])
-        
-        # Add derived features
+
         df['is_weekend'] = df['day_of_week'].isin(['Saturday', 'Sunday']).astype(int)
         df['is_peak_hour'] = df['booking_hour'].isin([9, 10, 11, 18, 19, 20]).astype(int)
-        
-        # Preprocess
+
         df, encoded_features = self.preprocess_features(df, fit=False)
         
         X = df[encoded_features]
-        
-        # Predict probability
+
         probability = self.model.predict_proba(X)[0][1] * 100
         
         return round(probability, 2)
 
-# Example usage
 if __name__ == "__main__":
 
     predictor = BookingPredictionModel()
@@ -190,12 +178,9 @@ if __name__ == "__main__":
     print(f"Dataset shape: {mock_data.shape}")
     print(f"\nFirst 5 rows:")
     print(mock_data.head())
-    
-    # Train model
+
     print("\n" + "="*50)
     training_results = predictor.train(mock_data)
-    
-    # Test predictions
     print("\n" + "="*50)
     print("Sample Predictions:")
     

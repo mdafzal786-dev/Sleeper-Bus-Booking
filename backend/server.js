@@ -7,8 +7,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-/* ---------------- MOCK DATABASE ---------------- */
-
 const database = {
   bus: {
     id: 'BUS001',
@@ -33,7 +31,6 @@ const database = {
   ]
 };
 
-/* ---------------- HELPERS ---------------- */
 
 function generateSeats(count) {
   const seats = [];
@@ -78,7 +75,6 @@ function calculateFare(fromStation, toStation) {
   return Math.round(Math.abs(to.distance - from.distance) * 0.8);
 }
 
-/* ---------------- ROUTES ---------------- */
 
 app.get('/api/stations', (req, res) => {
   res.json({ success: true, data: database.stations });
@@ -141,7 +137,6 @@ app.post('/api/bookings', (req, res) => {
   res.status(201).json({ success: true, data: booking });
 });
 
-/* ---------------- STATISTICS ROUTE (NEW) ---------------- */
 
 app.get('/api/statistics', (req, res) => {
   const totalBookings = database.bookings.length;
@@ -159,8 +154,6 @@ app.get('/api/statistics', (req, res) => {
     }
   });
 });
-
-/* ---------------- SERVER ---------------- */
 
 const PORT = process.env.PORT || 3000;
 
