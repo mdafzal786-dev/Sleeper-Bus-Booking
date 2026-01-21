@@ -1,60 +1,57 @@
-require('dotenv').config();
+require("dotenv").config();
+const express = require("express");
+const cors = require("cors");
 
-const express = require('express');
-const cors = require('cors');
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  next();
+});
+
 const database = {
   bus: {
-    id: 'BUS001',
-    name: 'Sleeper Express',
-    route: 'Ahmedabad → Mumbai',
+    id: "BUS001",
+    name: "Sleeper Express",
+    route: "Ahmedabad → Mumbai",
     totalSeats: 40,
-    layout: 'sleeper',
+    layout: "sleeper",
   },
   stations: [
-    { id: 'ST001', name: 'Ahmedabad', arrivalTime: null, departureTime: '22:00', distance: 0 },
-    { id: 'ST002', name: 'Vadodara', arrivalTime: '00:30', departureTime: '00:45', distance: 110 },
-    { id: 'ST003', name: 'Surat', arrivalTime: '03:00', departureTime: '03:15', distance: 260 },
-    { id: 'ST004', name: 'Mumbai', arrivalTime: '07:00', departureTime: null, distance: 530 }
+    { id: "ST001", name: "Ahmedabad", distance: 0 },
+    { id: "ST002", name: "Vadodara", distance: 110 },
+    { id: "ST003", name: "Surat", distance: 260 },
+    { id: "ST004", name: "Mumbai", distance: 530 },
   ],
   seats: [],
   bookings: [],
   meals: [
-    { id: 'M001', name: 'Veg Thali', type: 'veg', price: 150 },
-    { id: 'M002', name: 'Paneer Combo', type: 'veg', price: 180 },
-    { id: 'M003', name: 'Chicken Biryani', type: 'non-veg', price: 220 },
-    { id: 'M004', name: 'Jain Thali', type: 'jain', price: 160 }
-  ]
+    { id: "M001", name: "Veg Thali", type: "veg", price: 150 },
+    { id: "M002", name: "Paneer Combo", type: "veg", price: 180 },
+    { id: "M003", name: "Chicken Biryani", type: "non-veg", price: 220 },
+    { id: "M004", name: "Jain Thali", type: "jain", price: 160 },
+  ],
 };
 
-
 function generateSeats(count) {
-  const seats = [];
-  const types = ['lower', 'upper', 'lower'];
-
-  for (let i = 1; i <= count; i++) {
-    seats.push({
-      id: `S${String(i).padStart(3, '0')}`,
-      number: i,
-      type: types[(i - 1) % 3],
-      isBooked: false,
-      bookedSegments: []
-    });
-  }
-  return seats;
+  const seatTypes = ["lower", "upper"];
+  return Array.from({ length: count }, (_, i) => ({
+    id: `S${String(i + 1).padStart(3, "0")}`,
+    number: i + 1,
+    type: seatTypes[i % 2],
+    isBooked: false,
+    bookedSegments: [],
+  }));
 }
 
 database.seats = generateSeats(40);
 
-function isSeatAvailable(seat, fromStation, toStation) {
-  if (!seat.isBooked) return true;
-
-  const fromIndex = database.stations.findIndex(s => s.id === fromStation);
-  const toIndex = database.stations.findIndex(s => s.id === toStation);
+function isSeatAvailable(seat, from, to) {
+  const fromIndex = database.stations.findIndex(s => s.id === from);
+  const toIndex = database.stations.findIndex(s => s.id === to);
 
   for (const seg of seat.bookedSegments) {
     const segFrom = database.stations.findIndex(s => s.id === seg.from);
@@ -67,53 +64,48 @@ function isSeatAvailable(seat, fromStation, toStation) {
   return true;
 }
 
-function calculateFare(fromStation, toStation) {
-  const from = database.stations.find(s => s.id === fromStation);
-  const to = database.stations.find(s => s.id === toStation);
-  if (!from || !to) return 0;
-
-  return Math.round(Math.abs(to.distance - from.distance) * 0.8);
+function calculateFare(from, to) {
+  const f = database.stations.find(s => s.id === from);
+  const t = database.stations.find(s => s.id === to);
+  return f && t ? Math.abs(t.distance - f.distance) * 0.8 : 0;
 }
 
 
-app.get('/api/stations', (req, res) => {
+app.get("/api/stations", (req, res) => {
   res.json({ success: true, data: database.stations });
 });
 
-app.get('/api/seats', (req, res) => {
+app.get("/api/seats", (req, res) => {
   const { from, to } = req.query;
-
   if (!from || !to) {
-    return res.status(400).json({ success: false, message: 'From & To required' });
+    return res.status(400).json({ success: false, message: "From & To required" });
   }
 
   const seats = database.seats.map(seat => ({
     ...seat,
     available: isSeatAvailable(seat, from, to),
-    fare: calculateFare(from, to)
+    fare: calculateFare(from, to),
   }));
 
   res.json({ success: true, data: seats });
 });
 
-app.get('/api/meals', (req, res) => {
+app.get("/api/meals", (req, res) => {
   res.json({ success: true, data: database.meals });
 });
 
-app.post('/api/bookings', (req, res) => {
+app.post("/api/bookings", (req, res) => {
   const { seatIds, fromStation, toStation, passenger, meals } = req.body;
 
   if (!seatIds || !fromStation || !toStation || !passenger) {
-    return res.status(400).json({ success: false, message: 'Missing fields' });
+    return res.status(400).json({ success: false, message: "Missing fields" });
   }
 
-  const unavailable = seatIds.filter(id => {
+  for (let id of seatIds) {
     const seat = database.seats.find(s => s.id === id);
-    return !seat || !isSeatAvailable(seat, fromStation, toStation);
-  });
-
-  if (unavailable.length) {
-    return res.status(400).json({ success: false, message: 'Seats unavailable', unavailable });
+    if (!seat || !isSeatAvailable(seat, fromStation, toStation)) {
+      return res.status(400).json({ success: false, message: `Seat ${id} unavailable` });
+    }
   }
 
   const booking = {
@@ -123,8 +115,9 @@ app.post('/api/bookings', (req, res) => {
     toStation,
     passenger,
     meals: meals || [],
-    status: 'confirmed',
-    bookingTime: new Date().toISOString()
+    fare: calculateFare(fromStation, toStation) * seatIds.length,
+    status: "confirmed",
+    createdAt: new Date(),
   };
 
   seatIds.forEach(id => {
@@ -134,28 +127,87 @@ app.post('/api/bookings', (req, res) => {
   });
 
   database.bookings.push(booking);
+
   res.status(201).json({ success: true, data: booking });
 });
 
+app.put("/api/bookings/:id/cancel", (req, res) => {
+  const booking = database.bookings.find(b => b.id === req.params.id);
 
-app.get('/api/statistics', (req, res) => {
+  if (!booking) {
+    return res.status(404).json({ success: false, message: "Booking not found" });
+  }
+
+  booking.status = "cancelled";
+
+  booking.seatIds.forEach(seatId => {
+    const seat = database.seats.find(s => s.id === seatId);
+
+    seat.bookedSegments = seat.bookedSegments.filter(
+      seg => !(seg.from === booking.fromStation && seg.to === booking.toStation)
+    );
+
+    if (seat.bookedSegments.length === 0) {
+      seat.isBooked = false;
+    }
+  });
+
+  res.json({ success: true, message: "Booking cancelled successfully" });
+});
+
+app.get("/api/bookings", (req, res) => {
+  res.json({ success: true, data: database.bookings });
+});
+
+app.get("/api/availability", (req, res) => {
+  const { seatId, from, to } = req.query;
+  const seat = database.seats.find(s => s.id === seatId);
+
+  if (!seat) {
+    return res.status(404).json({ success: false, message: "Seat not found" });
+  }
+
+  res.json({
+    success: true,
+    available: isSeatAvailable(seat, from, to),
+  });
+});
+
+app.get("/api/statistics", (req, res) => {
   const totalBookings = database.bookings.length;
-  const confirmed = database.bookings.filter(b => b.status === 'confirmed').length;
-  const cancelled = database.bookings.filter(b => b.status === 'cancelled').length;
-  const occupiedSeats = database.seats.filter(s => s.isBooked).length;
+
+  const confirmedBookings = database.bookings.filter(
+    b => b.status === "confirmed"
+  ).length;
+
+  const cancelledBookings = database.bookings.filter(
+    b => b.status === "cancelled"
+  ).length;
+
+  const occupiedSeats = database.seats.filter(
+    seat => seat.bookedSegments.length > 0
+  ).length;
+
+  const occupancyRate = (
+    (occupiedSeats / database.seats.length) * 100
+  ).toFixed(2);
 
   res.json({
     success: true,
     data: {
       totalBookings,
-      confirmedBookings: confirmed,
-      cancelledBookings: cancelled,
-      occupancyRate: ((occupiedSeats / database.seats.length) * 100).toFixed(2)
-    }
+      confirmedBookings,
+      cancelledBookings,
+      occupiedSeats,
+      occupancyRate: occupancyRate + "%",
+    },
   });
 });
+app.use((req, res) => {
+  res.status(404).json({ success: false, message: "Route not found" });
+});
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
   console.log(`🚌 Sleeper Bus Booking API running on port ${PORT}`);
