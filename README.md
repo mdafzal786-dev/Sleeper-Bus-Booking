@@ -131,9 +131,10 @@ Sleeper_Bus_Booking/
 ├── PREDICTION_APPROACH.md     # AI/ML logic explanation
 └── README.md                  # Project documentation
 ## ⚙️ Installation & Setup
+---
+
 
 ### 1️⃣ Clone the Repository
-```bash
 git clone https://github.com/Md-Afzal786guru/Sleeper-Bus-Booking.git
 cd Sleeper-Bus-Booking
 2️⃣ Backend Setup (Node.js)
