@@ -7,6 +7,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Logs every request with time and route (useful while testing APIs)
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
   next();
@@ -20,14 +21,18 @@ const database = {
     totalSeats: 40,
     layout: "sleeper",
   },
+
+  // Order matters here because distance and seat segments depend on it
   stations: [
     { id: "ST001", name: "Ahmedabad", distance: 0 },
     { id: "ST002", name: "Vadodara", distance: 110 },
     { id: "ST003", name: "Surat", distance: 260 },
     { id: "ST004", name: "Mumbai", distance: 530 },
   ],
+
   seats: [],
   bookings: [],
+
   meals: [
     { id: "M001", name: "Veg Thali", type: "veg", price: 150 },
     { id: "M002", name: "Paneer Combo", type: "veg", price: 180 },
@@ -36,6 +41,8 @@ const database = {
   ],
 };
 
+// Creates seats and alternates between lower and upper berth
+// bookedSegments is used for partial journey booking
 function generateSeats(count) {
   const seatTypes = ["lower", "upper"];
   return Array.from({ length: count }, (_, i) => ({
@@ -49,6 +56,8 @@ function generateSeats(count) {
 
 database.seats = generateSeats(40);
 
+// Checks seat availability for selected source and destination
+// Seat is unavailable only if journey overlaps with existing booking
 function isSeatAvailable(seat, from, to) {
   const fromIndex = database.stations.findIndex(s => s.id === from);
   const toIndex = database.stations.findIndex(s => s.id === to);
@@ -64,12 +73,12 @@ function isSeatAvailable(seat, from, to) {
   return true;
 }
 
+// Fare is calculated using distance difference between stations
 function calculateFare(from, to) {
   const f = database.stations.find(s => s.id === from);
   const t = database.stations.find(s => s.id === to);
   return f && t ? Math.abs(t.distance - f.distance) * 0.8 : 0;
 }
-
 
 app.get("/api/stations", (req, res) => {
   res.json({ success: true, data: database.stations });
@@ -77,10 +86,12 @@ app.get("/api/stations", (req, res) => {
 
 app.get("/api/seats", (req, res) => {
   const { from, to } = req.query;
+
   if (!from || !to) {
     return res.status(400).json({ success: false, message: "From & To required" });
   }
 
+  // Adds availability and fare info for each seat
   const seats = database.seats.map(seat => ({
     ...seat,
     available: isSeatAvailable(seat, from, to),
@@ -101,6 +112,7 @@ app.post("/api/bookings", (req, res) => {
     return res.status(400).json({ success: false, message: "Missing fields" });
   }
 
+  // Check all seats again before booking
   for (let id of seatIds) {
     const seat = database.seats.find(s => s.id === id);
     if (!seat || !isSeatAvailable(seat, fromStation, toStation)) {
@@ -120,6 +132,7 @@ app.post("/api/bookings", (req, res) => {
     createdAt: new Date(),
   };
 
+  // Save only this journey segment in seat booking
   seatIds.forEach(id => {
     const seat = database.seats.find(s => s.id === id);
     seat.isBooked = true;
@@ -127,7 +140,6 @@ app.post("/api/bookings", (req, res) => {
   });
 
   database.bookings.push(booking);
-
   res.status(201).json({ success: true, data: booking });
 });
 
@@ -143,6 +155,7 @@ app.put("/api/bookings/:id/cancel", (req, res) => {
   booking.seatIds.forEach(seatId => {
     const seat = database.seats.find(s => s.id === seatId);
 
+    // Remove only cancelled route from seat
     seat.bookedSegments = seat.bookedSegments.filter(
       seg => !(seg.from === booking.fromStation && seg.to === booking.toStation)
     );
@@ -175,14 +188,8 @@ app.get("/api/availability", (req, res) => {
 
 app.get("/api/statistics", (req, res) => {
   const totalBookings = database.bookings.length;
-
-  const confirmedBookings = database.bookings.filter(
-    b => b.status === "confirmed"
-  ).length;
-
-  const cancelledBookings = database.bookings.filter(
-    b => b.status === "cancelled"
-  ).length;
+  const confirmedBookings = database.bookings.filter(b => b.status === "confirmed").length;
+  const cancelledBookings = database.bookings.filter(b => b.status === "cancelled").length;
 
   const occupiedSeats = database.seats.filter(
     seat => seat.bookedSegments.length > 0
@@ -203,6 +210,8 @@ app.get("/api/statistics", (req, res) => {
     },
   });
 });
+
+// Handles wrong or undefined API routes
 app.use((req, res) => {
   res.status(404).json({ success: false, message: "Route not found" });
 });

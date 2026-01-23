@@ -4,6 +4,7 @@ from random import randint
 
 API_URL = "http://localhost:5000"
 
+# Page configuration for layout and title
 st.set_page_config(
     page_title="Sleeper Bus Booking Dashboard",
     page_icon="🚍",
@@ -11,25 +12,33 @@ st.set_page_config(
 )
 
 st.markdown(
-    "<h1 style='text-align:center'>🚍 Sleeper Bus Booking System – Dashboard</h1>",
+    "<h1 style='text-align:center'>🚍 Sleeper Bus Booking System – AI / ML Prediction Dashboard</h1>",
     unsafe_allow_html=True
 )
 st.markdown("---")
 
+
 def mock_confirmation_probability(from_station, to_station, num_seats, seat_type, day_of_week):
+    # Base probability used as starting point
     base = 50
 
+    # Fewer seats booked → higher confirmation chance
     seat_factor = (4 - num_seats) * 10
     probability = base + seat_factor
 
+    # Weekends usually have more demand
     if day_of_week in ["Friday", "Saturday", "Sunday"]:
         probability -= 10
     else:
         probability += 5
 
+    # Random variation added to simulate real-world behavior
     probability += randint(-10, 10)
 
     return max(0, min(100, probability))
+
+
+# Fetch station list from backend
 try:
     stations = requests.get(f"{API_URL}/api/stations").json()["data"]
     station_dict = {s["name"]: s["id"] for s in stations}
@@ -37,6 +46,7 @@ except:
     st.error("❌ Cannot fetch stations from backend")
     station_dict = {}
 
+# Fetch meal list from backend
 try:
     meals_data = requests.get(f"{API_URL}/api/meals").json()["data"]
     meals_dict = {m["name"]: m["id"] for m in meals_data}
@@ -45,6 +55,8 @@ except:
     meals_dict = {}
 
 st.subheader("📊 Live Booking Statistics")
+
+# Live statistics fetched from Node.js backend
 try:
     stats = requests.get(f"{API_URL}/api/statistics").json()["data"]
     col1, col2, col3, col4 = st.columns(4)
@@ -56,7 +68,6 @@ except:
     st.error("❌ Node.js backend not running on port 5000")
 
 st.markdown("---")
-
 st.subheader("🤖 Predict & Book Seats")
 
 with st.form("booking_form"):
@@ -85,11 +96,13 @@ with st.form("booking_form"):
     predict_btn = st.form_submit_button("🔮 Predict Confirmation Probability")
     book_btn = st.form_submit_button("🚍 Confirm Booking")
 
+# Prevent invalid route selection
 if from_station == to_station:
     st.warning("⚠ From and To stations cannot be the same")
     predict_btn = False
     book_btn = False
 
+# Prediction logic (mock AI)
 if predict_btn:
     probability = mock_confirmation_probability(
         from_station,
@@ -116,11 +129,13 @@ if predict_btn:
     else:
         st.error("🔴 High risk of cancellation")
 
+# Booking logic using backend APIs
 if book_btn:
     try:
         from_id = station_dict[from_station]
         to_id = station_dict[to_station]
 
+        # Fetch seat availability for selected route
         seats_response = requests.get(
             f"{API_URL}/api/seats?from={from_id}&to={to_id}"
         ).json()["data"]
@@ -133,6 +148,7 @@ if book_btn:
         if len(available_seats) < num_seats:
             st.error("❌ Not enough seats available")
         else:
+            # Payload sent to backend for booking
             booking_payload = {
                 "seatIds": available_seats[:num_seats],
                 "fromStation": from_id,
@@ -157,9 +173,11 @@ if book_btn:
 
     except Exception as e:
         st.error(f"❌ Backend Error: {e}")
+
 st.markdown("---")
 st.subheader("🗂 Booking History & Cancel Bookings")
 
+# Fetch and display all bookings
 try:
     bookings = requests.get(f"{API_URL}/api/bookings").json()["data"]
 
@@ -172,6 +190,7 @@ try:
                 st.write(f"💰 Fare: {b['fare']}")
                 st.write(f"🕒 Created: {b['createdAt'][:19]}")
 
+                # Cancel allowed only for confirmed bookings
                 if b["status"] == "confirmed":
                     if st.button("Cancel Booking", key=b["id"]):
                         res = requests.put(
