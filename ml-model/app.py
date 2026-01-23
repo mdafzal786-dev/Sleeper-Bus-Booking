@@ -2,7 +2,7 @@ import streamlit as st
 import requests
 from random import randint
 
-API_URL = "http://localhost:5000"
+API_URL = "http://localhost:5001"
 
 # Page configuration for layout and title
 st.set_page_config(
@@ -114,7 +114,7 @@ if predict_btn:
 
     st.markdown(
         f"""
-        <div style='padding:12px;border-radius:10px;background-color:#E0F7FA;'>
+        <div style='padding:12px;border-radius:10px;background-color:#000;'>
             <h4>✅ Confirmation Probability: <strong>{probability}%</strong></h4>
             <p>🗓 Travel Day: <b>{day_of_week}</b></p>
         </div>
